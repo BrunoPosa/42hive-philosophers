@@ -6,7 +6,7 @@
 /*   By: bposa <bposa@student.hive.fi>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/07/12 13:28:33 by bposa             #+#    #+#             */
-/*   Updated: 2024/08/08 14:24:24 by bposa            ###   ########.fr       */
+/*   Updated: 2024/08/09 23:55:36 by bposa            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -26,13 +26,15 @@
 */
 void	routine(t_philo *p)
 {
-	setter(&p->ready, SUCCESS, &p->readylock);
-	while (getter(&p->go, &p->golock) != GO)
-		usleep(400);
+	pthread_mutex_lock(p->serlock);
+	*p->served = *p->served + 1;
+	pthread_mutex_unlock(p->serlock);
+	while (getter(&p->go, p->serlock) != GO)
+		usleep(200);
 	while (1)
 	{
 		printer(p->id, "is thinking", p);
-		if (getter(&p->firstrun, &p->readylock) && p->id % 2 == 0)
+		if (getter(&p->firstrun, p->serlock) && p->id % 2 == 0)
 			wait_ms(p->sleep_t / 2, p);
 		pthread_mutex_lock(p->forkone);
 		printer(p->id, "has taken a fork", p);
@@ -46,9 +48,9 @@ void	routine(t_philo *p)
 		pthread_mutex_unlock(p->forkone);
 		pthread_mutex_unlock(p->forktwo);
 		printer(p->id, "is sleeping", p);
-		if (getter(&p->dead, &p->dlock) == DEATH || wait_ms(p->sleep_t, p))
+		if (getter(p->deathwatch, p->dlock) == DEATH || wait_ms(p->sleep_t, p))
 			break ;
-		setter(&p->firstrun, 0, &p->readylock);
+		setter(&p->firstrun, 0, p->serlock);
 	}
 }
 
@@ -56,21 +58,20 @@ void	butler(t_data *d)
 {
 	int	i;
 
-	i = -1;
-	while (checker(d, GO) != GO)
-		usleep(400);
+	while (getter(&d->served_n, &d->servedlock) != d->n_philos)
+		usleep(200);
 	d->starttime = get_time_ms();
 	spread(d, GO);
 	while (1)
 	{
 		i = -1;
-		while (++i < d->n_philos)
+		while (++i < d->n_philos && !getter(&d->death, &d->dielock))
 		{
 			if ((d->philo[i]->last_meal_t != 0 
 				&& get_time_ms() - lastmealget(d->philo[i]) >= d->die_t)
 				|| checker(d, MEAL) == SUCCESS)
 			{
-				spread(d, DEATH);
+				setter(&d->death, DEATH, &d->dielock);
 				break ;
 			}
 		}
@@ -81,28 +82,25 @@ void	butler(t_data *d)
 		printer(d->philo[i]->id, "died", d->philo[i]);
 }
 
+//Change so each philo has only pointers to a single mutex in the  otherwise its too slow i think, and too many mutexes
 int	spread(t_data *d, int signal)
 {
 	int	i;
 
 	i = -1;
-	if (signal == DEATH)
+	if (signal == GO)
 	{
+		pthread_mutex_lock(&d->servedlock);
 		while (++i < d->n_philos)
-			setter(&d->philo[i]->dead, DEATH, &d->philo[i]->dlock);
-		setter(&d->death, DEATH, &d->dielock);
-	}
-	else if (signal == GO)
-	{
-		while (++i < d->n_philos)
-			setter(&d->philo[i]->go, GO, &d->philo[i]->golock);
+			d->philo[i]->go = GO;
+		pthread_mutex_unlock(&d->servedlock);
 	}
 	return (SUCCESS);
 }
 
 void	printer(int arg, char *str, t_philo *p)
 {
-	if (getter(&p->dead, &p->dlock) == DEATH && my_strncmp(str, "died", 4) != SUCCESS)
+	if (getter(p->deathwatch, p->dlock) == DEATH && my_strncmp(str, "died", 4) != SUCCESS)
 		return ;
 	pthread_mutex_lock(p->prlock);
 	printf("%lld %d %s\n", get_time_ms() - *p->start_t, arg, str);

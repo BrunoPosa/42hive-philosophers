@@ -6,7 +6,7 @@
 /*   By: bposa <bposa@student.hive.fi>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/07/22 14:33:44 by bposa             #+#    #+#             */
-/*   Updated: 2024/08/08 14:07:22 by bposa            ###   ########.fr       */
+/*   Updated: 2024/08/10 21:12:48 by bposa            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -14,24 +14,8 @@
 
 int	init_mutex(t_data *d, int i)
 {
-	if (pthread_mutex_init(&d->philo[i]->dlock, NULL) != SUCCESS)
-		return (ERROR);
-	if (pthread_mutex_init(&d->philo[i]->golock, NULL) != SUCCESS)
-	{
-		pthread_mutex_destroy(&d->philo[i]->dlock);
-		return (ERROR);
-	}
-	if (pthread_mutex_init(&d->philo[i]->readylock, NULL) != SUCCESS)
-	{
-		pthread_mutex_destroy(&d->philo[i]->dlock);
-		pthread_mutex_destroy(&d->philo[i]->golock);
-		return (ERROR);
-	}
 	if (pthread_mutex_init(&d->philo[i]->lmeallock, NULL) != SUCCESS)
 	{
-		pthread_mutex_destroy(&d->philo[i]->dlock);
-		pthread_mutex_destroy(&d->philo[i]->golock);
-		pthread_mutex_destroy(&d->philo[i]->readylock);
 		return (ERROR);
 	}
 	return (SUCCESS);
@@ -48,12 +32,15 @@ int	init_philo(t_data *d, int i)
 	d->philo[i]->forktwo = &d->forks[(i + 1) % d->n_philos];
 	if (d->n_philos == 1)
 		d->philo[i]->forktwo = NULL;
+	d->philo[i]->prlock = &d->printlock;
+	d->philo[i]->dlock = &d->dielock;
+	d->philo[i]->serlock = &d->servedlock;
+	d->philo[i]->served = &d->served_n;
 	d->philo[i]->die_t = d->die_t;
 	d->philo[i]->eat_t = d->eat_t;
 	d->philo[i]->sleep_t = d->sleep_t;
-	d->philo[i]->prlock = &d->printlock;
+	d->philo[i]->deathwatch = &d->death;
 	d->philo[i]->start_t = &d->starttime;
-	d->philo[i]->ready = -1;
 	d->philo[i]->firstrun = 1;
 	if (init_mutex(d, i) != SUCCESS)
 		return (ERROR);

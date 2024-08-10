@@ -6,7 +6,7 @@
 /*   By: bposa <bposa@student.hive.fi>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/07/22 12:29:27 by bposa             #+#    #+#             */
-/*   Updated: 2024/08/08 14:25:21 by bposa            ###   ########.fr       */
+/*   Updated: 2024/08/09 23:46:09 by bposa            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -25,7 +25,7 @@ int	wait_ms(long long int mseconds, t_philo *p)
 	{
 		current = get_time_ms();
 		usleep(400);
-		if (getter(&p->dead, &p->dlock) == DEATH)
+		if (getter(p->deathwatch, p->dlock) == DEATH)
 			return (ERROR);
 	}
 	return (SUCCESS);
@@ -76,15 +76,6 @@ int	checker(t_data *d, int flag)
 				return (ERROR);
 		}
 		return (SUCCESS);
-	}
-	else if (flag == GO)
-	{
-		while (++i < d->n_philos)
-		{
-			if (getter(&d->philo[i]->ready, &d->philo[i]->readylock) != SUCCESS)
-				return (ERROR);
-		}
-		return (GO);
 	}
 	return (ERROR);
 }

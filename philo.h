@@ -6,7 +6,7 @@
 /*   By: bposa <bposa@student.hive.fi>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/07/12 13:43:10 by bposa             #+#    #+#             */
-/*   Updated: 2024/08/08 14:06:55 by bposa            ###   ########.fr       */
+/*   Updated: 2024/08/10 21:10:30 by bposa            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -73,28 +73,26 @@
 #include <unistd.h>
 #include <string.h>
 
+//I have an array of philo structs, each of which has a thread and 5 mutex pointers
 typedef	struct	s_philo
 {
 	int				id;
 	pthread_t		thread;
+	pthread_mutex_t	lmeallock;
 	pthread_mutex_t	*forkone;
 	pthread_mutex_t	*forktwo;
 	pthread_mutex_t	*prlock;
-	pthread_mutex_t	dlock;
-	pthread_mutex_t	golock;
-	pthread_mutex_t	readylock;
-	pthread_mutex_t	lmeallock;
+	pthread_mutex_t	*dlock;
+	pthread_mutex_t	*serlock;
+	int				*deathwatch;
+	long long int	*start_t;
+	int				*served;
 	int				die_t;
 	int				eat_t;
 	int				sleep_t;
 	int				meals_had;
-	int				dead;
 	long long int	last_meal_t;
-	long long int	*start_t;
-	int				error;
-	int				ready;
 	int				go;
-	int				forkcount;
 	int				firstrun;
 }	t_philo;
 
@@ -105,6 +103,8 @@ typedef struct	s_data
 	pthread_mutex_t	*forks;
 	pthread_mutex_t	printlock;
 	pthread_mutex_t	dielock;
+	pthread_mutex_t	servedlock;
+	int				served_n;
 	int				n_philos;
 	int				die_t;
 	int				eat_t;
