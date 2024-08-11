@@ -6,7 +6,7 @@
 /*   By: bposa <bposa@student.hive.fi>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/07/12 13:28:33 by bposa             #+#    #+#             */
-/*   Updated: 2024/08/09 23:55:36 by bposa            ###   ########.fr       */
+/*   Updated: 2024/08/11 11:50:12 by bposa            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -56,27 +56,29 @@ void	routine(t_philo *p)
 
 void	butler(t_data *d)
 {
-	int	i;
+	int				i;
+	int				death;
 
+	death = 0;
 	while (getter(&d->served_n, &d->servedlock) != d->n_philos)
 		usleep(200);
 	d->starttime = get_time_ms();
 	spread(d, GO);
-	while (1)
+	while (!death)
 	{
 		i = -1;
-		while (++i < d->n_philos && !getter(&d->death, &d->dielock))
+		death = getter(&d->death, &d->dielock);
+		while (!death && ++i < d->n_philos && d->philo[i]->last_meal_t != 0)
 		{
-			if ((d->philo[i]->last_meal_t != 0 
-				&& get_time_ms() - lastmealget(d->philo[i]) >= d->die_t)
+			if (get_time_ms() - lastmealget(d->philo[i]) >= d->die_t
 				|| checker(d, MEAL) == SUCCESS)
 			{
-				setter(&d->death, DEATH, &d->dielock);
+				death = 1;
 				break ;
 			}
 		}
-		if (i != d->n_philos)
-			break ;
+		if (death)
+			setter(&d->death, DEATH, &d->dielock);
 	}
 	if (checker(d, MEAL) != SUCCESS)
 		printer(d->philo[i]->id, "died", d->philo[i]);
