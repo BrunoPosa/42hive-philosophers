@@ -6,72 +6,114 @@
 /*   By: bposa <bposa@student.hive.fi>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/07/12 13:28:33 by bposa             #+#    #+#             */
-/*   Updated: 2024/08/11 11:50:12 by bposa            ###   ########.fr       */
+/*   Updated: 2024/08/11 21:42:34 by bposa            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "philo.h"
 
-/*
-	-Philo dies after some time with 200 130 60 60
-	-it still sometimes prints "taken a fork" after death, e.g. with 200 130 60 60
-	-try testing w/ fast debug optimization flag
-	-./philo 200 599 200 200 should not die at 600 i think, but it often does. 
-		AND rarely has some prints after death. 199 599 200 200 SHOUOLD die though.
-	-Fix Helgrind
-	-198 6 200 200 when giving small die_t, the printing continues a while after death
-	-test 200 800 200 200 (none should die) Arthur fixed with every
-		odd taking one fork first and even the other - BUT only on first run through. 
-		Also waiting for sleep_t/2 to look for forks.
-*/
-void	routine(t_philo *p)
+void	philolife(t_data *d)
 {
-	pthread_mutex_lock(p->serlock);
-	*p->served = *p->served + 1;
-	pthread_mutex_unlock(p->serlock);
-	while (getter(&p->go, p->serlock) != GO)
-		usleep(200);
-	while (1)
+	int				id;
+	long long int	t;
+
+	pthread_mutex_lock(&d->lock);
+	pthread_mutex_unlock(&d->lock);
+	t = get_time_ms();
+	if (id % 2 == 0)
+		wait_ms(5, d);
+	while (!getter(&d->death, &d->dielock) && t - d->tfed[id] < d->tdie)
 	{
-		printer(p->id, "is thinking", p);
-		if (getter(&p->firstrun, p->serlock) && p->id % 2 == 0)
-			wait_ms(p->sleep_t / 2, p);
-		pthread_mutex_lock(p->forkone);
-		printer(p->id, "has taken a fork", p);
-		if (!p->forktwo && lastmealset(p))
+		if (routine(id, d) || (d->meals != -1 && d->fedcount[id] >= d->meals))
 			break ;
-		pthread_mutex_lock(p->forktwo);
-		printer(p->id, "has taken a fork", p);
-		printer(p->id, "is eating", p);
-		lastmealset(p);
-		wait_ms(p->eat_t, p);
-		pthread_mutex_unlock(p->forkone);
-		pthread_mutex_unlock(p->forktwo);
-		printer(p->id, "is sleeping", p);
-		if (getter(p->deathwatch, p->dlock) == DEATH || wait_ms(p->sleep_t, p))
-			break ;
-		setter(&p->firstrun, 0, p->serlock);
+		t = get_time_ms();
 	}
+	increment_id(&d->ids, &d->lock);
 }
 
-void	butler(t_data *d)
+void	increment_id(int *id, pthread_mutex_t *mutex)
 {
-	int				i;
-	int				death;
+	pthread_mutex_lock(mutex);
+	*id = *id + 1;
+	pthread_mutex_unlock(mutex);
+}
+
+int	routine(int id, t_data *d)
+{
+	pthread_mutex_t	*first;
+	pthread_mutex_t	*second;
+
+	assignforks(id, d, first, second);
+	if (action(THINK, id, "is thinking", d))
+		return (DEATH);
+	pthread_mutex_lock(first);
+	if (action(FORK, id, "has taken a fork", d) || !second)
+		return (DEATH);
+	pthread_mutex_lock(second);
+	if (action(FORKTWO, id, "has taken a fork", d))
+		return (DEATH);
+	if (action(EAT, id, "is eating", d))
+		return (DEATH);
+	d->tfed[id] = get_time_ms();
+	if (getter(&d->death, &d->dielock) || wait_ms(d->teat, d))
+		return (DEATH);
+	pthread_mutex_unlock(first);
+	pthread_mutex_unlock(second);
+	if (action(SLEEP, id, "is sleeping", d))
+		return (DEATH);
+	if (getter(&d->death, &d->dielock) || wait_ms(d->tsleep, d))
+		return (DEATH);
+	return (SUCCESS);
+}
+
+void	assignforks(int id, t_data *d, void *ff, void *sf)
+{//maybe needs casting
+	ff = &d->fork[id];
+	sf = &d->fork[(id + 1) % d->n_philos];
+	if (ff == sf)
+		sf = NULL;
+}
+
+int	action(t_action act, int arg, char *str, t_data *d)
+{
+	pthread_mutex_lock(&d->dielock);
+	if (d->death)
+	{
+		if (act == )
+
+		pthread_mutex_unlock(&d->dielock);
+		return (DEATH);
+	}
+	printer(arg, str, d);
+	pthread_mutex_unlock(&d->dielock);
+	return (SUCCESS);
+}
+
+void	printer(int arg, char *str, t_data *d)
+{
+	pthread_mutex_lock(&d->printlock);
+	printf("%lld %d %s\n", get_time_ms() - d->tstart, arg, str);
+	pthread_mutex_unlock(&d->printlock);
+}
+
+
+void	monitor(t_data *d)
+{
+	int	i;
+	int	death;
 
 	death = 0;
-	while (getter(&d->served_n, &d->servedlock) != d->n_philos)
+	while (getter(&d->ids, &d->lock) != d->n_philos)
 		usleep(200);
-	d->starttime = get_time_ms();
-	spread(d, GO);
+	d->tstart = get_time_ms();
 	while (!death)
 	{
 		i = -1;
 		death = getter(&d->death, &d->dielock);
 		while (!death && ++i < d->n_philos && d->philo[i]->last_meal_t != 0)
 		{
-			if (get_time_ms() - lastmealget(d->philo[i]) >= d->die_t
-				|| checker(d, MEAL) == SUCCESS)
+			if (get_time_ms() - lastmealget(d->philo[i]) >= d->die_t)
+				// || checker(d, MEAL) == SUCCESS)
 			{
 				death = 1;
 				break ;
@@ -100,25 +142,8 @@ int	spread(t_data *d, int signal)
 	return (SUCCESS);
 }
 
-void	printer(int arg, char *str, t_philo *p)
-{
-	if (getter(p->deathwatch, p->dlock) == DEATH && my_strncmp(str, "died", 4) != SUCCESS)
-		return ;
-	pthread_mutex_lock(p->prlock);
-	printf("%lld %d %s\n", get_time_ms() - *p->start_t, arg, str);
-	if (my_strncmp(str, "died", 4) != SUCCESS)
-		pthread_mutex_unlock(p->prlock);
-	if (my_strncmp(str, "is eating", 9) == 0)
-		p->meals_had++;
-}
 
-/*
-	-Implement mutex lock/unlock protections..
-	-fix validator() to work using macros/enums
-	-reorganize initialization
-	-Limit philos in validation to 2000
-	-ensure when someone dies, NOTHING gets ever printed after that
-*/
+
 int main(int argc, char **argv)
 {
 	t_data	*d;
@@ -128,10 +153,9 @@ int main(int argc, char **argv)
 	d = malloc(sizeof(t_data));
 	if (!d)
 		return (ermsg(EMALMUT));
-	if (initor(argv, d) == ERROR)
+	if (init_all(argv, d) == ERROR)
 		return (ermsg(EINIT));
-	d->initdone = 1;
-	while (getter(&d->death, &d->dielock) != DEATH)
-		usleep(400);
+	while (getter(&d->ids, &d->lock) != 2 * d->n_philos)
+		wait_ms(1, d);
 	return (cleanerr(d, SUCCESS, d->n_philos));
 }

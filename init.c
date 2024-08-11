@@ -6,7 +6,7 @@
 /*   By: bposa <bposa@student.hive.fi>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/07/22 14:33:44 by bposa             #+#    #+#             */
-/*   Updated: 2024/08/10 21:12:48 by bposa            ###   ########.fr       */
+/*   Updated: 2024/08/11 18:18:23 by bposa            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -28,8 +28,7 @@ int	init_philo(t_data *d, int i)
 		return (ERROR);
 	memset(d->philo[i], 0, sizeof(t_philo));
 	d->philo[i]->id = i + 1;
-	d->philo[i]->forkone = &d->forks[i];
-	d->philo[i]->forktwo = &d->forks[(i + 1) % d->n_philos];
+	
 	if (d->n_philos == 1)
 		d->philo[i]->forktwo = NULL;
 	d->philo[i]->prlock = &d->printlock;
@@ -74,7 +73,7 @@ int	init_mu_th(t_data *d)
 		return (cleanerr(d, ETHREAD, i));
 	return (SUCCESS);
 }
-
+//init tfed[ids++] to get_time_ms()
 int	initor(char **argv, t_data *d)
 {
 	memset(d, 0, sizeof(t_data));
