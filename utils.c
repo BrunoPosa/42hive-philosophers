@@ -6,7 +6,7 @@
 /*   By: bposa <bposa@student.hive.fi>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/07/22 12:29:27 by bposa             #+#    #+#             */
-/*   Updated: 2024/08/13 00:44:33 by bposa            ###   ########.fr       */
+/*   Updated: 2024/08/14 14:01:51 by bposa            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -16,19 +16,24 @@ int	wait_ms(long long int mseconds, t_philo *p)
 {
 	long long int	start;
 	long long int	current;
+	// long long int	lastfed;
 
 	current = 0;
+	// lastfed = lastmealget(p);
 	start = get_time_ms();
 	if (mseconds < 5)
 		mseconds = 5;
-	if (p->run && start - lastmealget(p) + mseconds >= p->die_t)
-		return (DEATH);
+	// if (p->run && start - lastfed + mseconds >= p->die_t)
+	// {
+	// 	setter(&p->death, p->id, p->dlock);
+	// 	return (DEATH);
+	// }
 	while (current - start < mseconds)
 	{
 		current = get_time_ms();
-		usleep(200);
-		// if (getter(&p->dead, &p->dlock))
-		// 	return (ERROR);
+		usleep(400);
+		if (getter(p->death, p->dlock))
+			return (DEATH);
 	}
 	return (SUCCESS);
 }
@@ -64,7 +69,7 @@ int	lastmealset(t_philo *p)
 	pthread_mutex_unlock(&p->lmeallock);
 	return (42);
 }
-//NEEDS A MUTEX FOR meals_had!
+
 int	checker(t_data *d, int flag)
 {
 	int	i;

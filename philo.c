@@ -6,30 +6,57 @@
 /*   By: bposa <bposa@student.hive.fi>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/07/12 13:28:33 by bposa             #+#    #+#             */
-/*   Updated: 2024/08/13 01:01:40 by bposa            ###   ########.fr       */
+/*   Updated: 2024/08/14 14:54:37 by bposa            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "philo.h"
 
+void	butler(t_data *d)
+{
+	int				i;
+	long long int	t;
+
+	i = -1;
+	t = 0;
+	while (1)//!getter(&d->death, &d->dielock)
+	{
+		i = -1;
+		t = get_time_ms();
+		while (++i < d->n_philos)
+		{
+			if ((lastmealget(d->philo[i]) != 0
+				&& t - lastmealget(d->philo[i]) >= d->die_t)
+				|| checker(d, MEAL) == SUCCESS)
+			{
+				setter(&d->death, DEATH, &d->dielock);
+				break ;
+			}
+		}
+		if (i != d->n_philos)
+			break ;
+	}
+	if (checker(d, MEAL) != SUCCESS)
+		printf("%lld %d died\n", t - d->starttime, i + 1);//d.death should also have the philo ID
+}
+
 /*
-	-ask Arthur about lack of forkswap with just the sleep_t / 3 delay. Seek edge cases.
+	-if all fails, give philo a pointer to global death and have him set it
+	-fix long sleep time short death - it shuld end instantly after death
 	-delete bloat
 	-norm pass
 	-mock eval
 */
-void	philolife(t_philo *p)
+void	life(t_philo *p)
 {
-	setter(&p->ready, SUCCESS, &p->readylock);
-	while (getter(&p->go, &p->golock) != GO)
-		usleep(200);
-	while (1)//!getter(&p->dead, &p->dlock))
+	pthread_mutex_lock(p->dlock);
+	pthread_mutex_unlock(p->dlock);
+	while (!getter(p->death, p->dlock))
 	{
-		// if (ifonlyonefork(p))
-		// 	break ;
-		if (routine(p) != SUCCESS || (p->meals != -1 && p->meals_had >= p->meals))
+		if (routine(p) != SUCCESS || (p->meals != -1
+			&& getter(&p->meals_had, &p->lmeallock) >= p->meals))
 		{
-			setter(&p->dead, p->id, &p->dlock);
+			// setter(p->death, p->id, &p->dlock);
 			break ;
 		}
 	}
@@ -40,10 +67,8 @@ int	routine(t_philo *p)
 {
 	if (action(THINK, p->id, "is thinking", p))
 		return (DEATH);
-	if (p->id % 2 == 0) //!getter(&p->run, &p->readylock) && 
-		wait_ms(p->sleep_t / 3, p);
-	// else if (p->id % 2 == 0 && getter(&p->run, &p->readylock) == 1)
-	// 	swapforks(p);
+	if (p->id % 2 == 0 && !getter(&p->run, &p->readylock) && wait_ms(p->sleep_t / 3, p))
+		return (DEATH);
 	pthread_mutex_lock(p->forkone);
 	if (action(FORK, p->id, "has taken a fork", p))
 		return (DEATH);
@@ -77,13 +102,8 @@ int	ifonlyonefork(t_philo *p)
 {
 	if (!p->forktwo)
 	{
-		// action(THINK, p->id, "is thinking", p);
-		// pthread_mutex_lock(p->forkone);
-		// printer(p->id, "has taken a fork", p);
 		pthread_mutex_unlock(p->forkone);
-		// wait_ms(p->die_t, p);
-		setter(&p->dead, DEATH, &p->dlock);
-		// setter(&p->end, 1, &p->readylock);
+		setter(p->death, DEATH, p->dlock);
 		return (DEATH);
 	}
 	return (ERROR);
@@ -95,19 +115,10 @@ void	dropforks(t_philo *p)
 	pthread_mutex_unlock(p->forktwo);
 }
 
-void	swapforks(t_philo *p)
-{
-	pthread_mutex_t	*temp;
-
-	temp = p->forkone;
-	p->forkone = p->forktwo;
-	p->forktwo = temp;
-}
-
 int	action(t_action act, int arg, char *str, t_philo *p)
 {
-	pthread_mutex_lock(&p->dlock);
-	if (p->dead)
+	pthread_mutex_lock(p->dlock);
+	if (*p->death)
 	{
 		if (act == FORK)
 			pthread_mutex_unlock(p->forkone);
@@ -116,7 +127,7 @@ int	action(t_action act, int arg, char *str, t_philo *p)
 			pthread_mutex_unlock(p->forkone);
 			pthread_mutex_unlock(p->forktwo);
 		}
-		pthread_mutex_unlock(&p->dlock);
+		pthread_mutex_unlock(p->dlock);
 		return (DEATH);
 	}
 	printer(arg, str, p);
@@ -129,7 +140,7 @@ int	action(t_action act, int arg, char *str, t_philo *p)
 			lastmealset(p);
 		}
 	}
-	pthread_mutex_unlock(&p->dlock);
+	pthread_mutex_unlock(p->dlock);
 	return (SUCCESS);
 }
 
@@ -140,63 +151,16 @@ void	printer(int arg, char *str, t_philo *p)
 	pthread_mutex_unlock(p->prlock);
 }
 
-void	butler(t_data *d)
-{
-	int	i;
-	long long int	t;
-
-	i = -1;
-	t = 0;
-	while (checker(d, GO) != GO)
-		usleep(200);
-	d->starttime = get_time_ms();
-	spread(d, GO);
-	while (!getter(&d->death, &d->dielock))
-	{
-		i = -1;
-		t = get_time_ms();
-		while (++i < d->n_philos)
-		{
-			if ((lastmealget(d->philo[i]) != 0 && t - lastmealget(d->philo[i]) >= d->die_t)
-				|| checker(d, MEAL) == SUCCESS)
-			{
-				spread(d, DEATH);
-				break ;
-			}
-		}
-		if (i != d->n_philos)
-			break ;
-	}//printf("\nn_meals:%d, meals_had by philo:%d\n\n", d->n_meals, d->philo[i]->meals_had);
-	if (checker(d, MEAL) != SUCCESS)
-		printf("%lld %d died\n", t - d->starttime, i + 1);
-}
- 
-int	spread(t_data *d, int signal)
+int	spreadgo(t_data *d)
 {
 	int	i;
 
 	i = -1;
-	if (signal == DEATH)
-	{
-		while (++i < d->n_philos)
-			setter(&d->philo[i]->dead, DEATH, &d->philo[i]->dlock);
-		setter(&d->death, DEATH, &d->dielock);
-	}
-	else if (signal == GO)
-	{
 		while (++i < d->n_philos)
 			setter(&d->philo[i]->go, GO, &d->philo[i]->golock);
-	}
 	return (SUCCESS);
 }
 
-/*
-	-Implement mutex lock/unlock protections..
-	-fix validator() to work using macros/enums
-	-reorganize initialization
-	-Limit philos in validation to 2000
-	-ensure when someone dies, NOTHING gets ever printed after that
-*/
 int main(int argc, char **argv)
 {
 	t_data	*d;
@@ -210,6 +174,6 @@ int main(int argc, char **argv)
 		return (ermsg(EINIT));
 	d->initdone = 1;
 	while (endchecker(d) != SUCCESS)
-		usleep(200);
+		usleep(400);
 	return (cleanerr(d, SUCCESS, d->n_philos));
 }
