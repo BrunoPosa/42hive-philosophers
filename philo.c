@@ -6,7 +6,7 @@
 /*   By: bposa <bposa@student.hive.fi>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/07/12 13:28:33 by bposa             #+#    #+#             */
-/*   Updated: 2024/08/14 23:57:44 by bposa            ###   ########.fr       */
+/*   Updated: 2024/08/15 13:22:31 by bposa            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -72,6 +72,9 @@ void	life(t_philo *p)
 	setter(&p->ready, SUCCESS, &p->readylock);
 	while (getter(&p->go, &p->golock) != GO)
 		usleep(200);
+	if (p->forkone > p->forktwo)
+		swapforks(p);
+	timecorrection(p);
 	action(THINK, p->id, "is thinking", p);
 	while (!getter(p->death, p->dlock))
 	{
@@ -110,8 +113,7 @@ void	butler(t_data *d)
 		if (i != d->n_philos)
 			break ;
 	}
-	if (checker(d, MEAL) != SUCCESS)
-		printf("%lld %d died\n", t - d->starttime, i + 1);
+	maybeprint(d, i, t);
 }
 
 int	main(int argc, char **argv)

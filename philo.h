@@ -6,7 +6,7 @@
 /*   By: bposa <bposa@student.hive.fi>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/07/12 13:43:10 by bposa             #+#    #+#             */
-/*   Updated: 2024/08/14 23:55:08 by bposa            ###   ########.fr       */
+/*   Updated: 2024/08/15 13:14:08 by bposa            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -124,6 +124,7 @@ typedef struct	s_data
 	int				initdone;
 }	t_data;
 
+void	timesetter(long long int *var, long long int *value, pthread_mutex_t *m);
 void	syncing(t_data *d);
 void			setter(void	*var, int value, pthread_mutex_t *lock);
 int	ifonlyonefork(t_philo *p);
@@ -151,5 +152,8 @@ int				ft_usleep(long long int mseconds, t_philo *p);
 int				my_atoi(char *n);
 size_t			my_strlen(const char *s);
 void	increment(int *var, pthread_mutex_t *lock);
+void	swapforks(t_philo *p);
+void		timecorrection(t_philo *p);
+void	maybeprint(t_data *d, int i, long long int t);
 
 #endif

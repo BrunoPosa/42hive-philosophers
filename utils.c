@@ -6,7 +6,7 @@
 /*   By: bposa <bposa@student.hive.fi>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/07/22 12:29:27 by bposa             #+#    #+#             */
-/*   Updated: 2024/08/14 22:44:17 by bposa            ###   ########.fr       */
+/*   Updated: 2024/08/15 13:24:45 by bposa            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -31,6 +31,47 @@ int	ifonlyonefork(t_philo *p)
 		return (DEATH);
 	}
 	return (ERROR);
+}
+
+void	maybeprint(t_data *d, int i, long long int t)
+{
+	if (checker(d, MEAL) != SUCCESS)
+	{
+		pthread_mutex_lock(&d->printlock);
+		// pthread_mutex_lock(&d->dielock);
+		printf("%lld %d died\n", t - d->starttime, i + 1);
+		// pthread_mutex_unlock(&d->dielock);
+		pthread_mutex_unlock(&d->printlock);
+	}
+}
+
+void	timecorrection(t_philo *p)
+{
+	long long int	t;
+
+	t = get_time_ms();
+	if (p->runs)
+		return ;
+	pthread_mutex_lock(p->dlock);
+	if (t != *p->start_t)
+		*p->start_t = t;
+	pthread_mutex_unlock(p->dlock);
+}
+
+void	timesetter(long long int *var, long long int *value, pthread_mutex_t *m)
+{
+	pthread_mutex_lock(m);
+	*var = *value;
+	pthread_mutex_unlock(m);
+}
+
+void	swapforks(t_philo *p)
+{
+	pthread_mutex_t	*temp;
+
+	temp = p->forkone;
+	p->forkone = p->forktwo;
+	p->forktwo = temp;
 }
 
 void	dropforks(t_philo *p)

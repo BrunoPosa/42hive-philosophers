@@ -6,7 +6,7 @@
 /*   By: bposa <bposa@student.hive.fi>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/08/04 12:47:59 by bposa             #+#    #+#             */
-/*   Updated: 2024/08/14 22:41:15 by bposa            ###   ########.fr       */
+/*   Updated: 2024/08/15 13:16:59 by bposa            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -36,18 +36,22 @@ void	setter(void *var, int value, pthread_mutex_t *lock)
 void	printer(int arg, char *str, t_philo *p)
 {
 	pthread_mutex_lock(p->prlock);
+	pthread_mutex_lock(p->dlock);
 	printf("%lld %d %s\n", get_time_ms() - *p->start_t, arg, str);
+	pthread_mutex_unlock(p->dlock);
 	pthread_mutex_unlock(p->prlock);
 }
 
 void	syncing(t_data *d)
 {
 	int	i;
+	long long int	t;
 
 	i = -1;
+	t = get_time_ms();
 	while (checker(d, GO) != GO)
 		usleep(200);
-	d->starttime = get_time_ms();
+	timesetter(&d->starttime, &t, &d->dielock);
 	while (++i < d->n_philos)
 		setter(&d->philo[i]->go, GO, &d->philo[i]->golock);
 }
