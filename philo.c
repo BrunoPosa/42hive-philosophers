@@ -6,40 +6,11 @@
 /*   By: bposa <bposa@student.hive.fi>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/07/12 13:28:33 by bposa             #+#    #+#             */
-/*   Updated: 2024/08/15 16:32:44 by bposa            ###   ########.fr       */
+/*   Updated: 2024/08/15 23:50:04 by bposa            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "philo.h"
-
-int	action(t_action act, int arg, char *str, t_philo *p)
-{
-	pthread_mutex_lock(p->dlock);
-	if (*p->death)
-	{
-		if (act == FORK)
-			pthread_mutex_unlock(p->forkone);
-		else if (act == FORKEAT)
-		{
-			pthread_mutex_unlock(p->forkone);
-			pthread_mutex_unlock(p->forktwo);
-		}
-		pthread_mutex_unlock(p->dlock);
-		return (DEATH);
-	}
-	printer(arg, str, p);
-	if (act == FORKEAT)
-	{
-		if (p->meals)
-		{
-			printer(arg, "is eating", p);
-			increment(&p->meals_had, &p->lmeallock);
-			lastmealset(p);
-		}
-	}
-	pthread_mutex_unlock(p->dlock);
-	return (SUCCESS);
-}
 
 int	routine(t_philo *p)
 {
@@ -64,6 +35,8 @@ int	routine(t_philo *p)
 	if (action(SLEEP, p->id, "is sleeping", p) || ft_usleep(p->sleep_t, p))
 		return (DEATH);
 	p->runs++;
+	if (p->runs == 2147483647)
+		p->runs = 3;
 	return (SUCCESS);
 }
 
@@ -73,49 +46,64 @@ void	life(t_philo *p)
 	while (getter(&p->go, &p->golock) != GO)
 		usleep(200);
 	action(THINK, p->id, "is thinking", p);
-	while (!getter(p->death, p->dlock))
+	while (1)
 	{
-		if (routine(p))
-		{
-			setter(p->death, p->id, p->dlock);
+		if (routine(p) != SUCCESS)
 			break ;
-		}
-		if (getter(&p->meals, &p->lmeallock) != -1
-			&& getter(&p->meals_had, &p->lmeallock) >= p->meals)
-		{
-			break ;
-		}
 	}
+	// pthread_mutex_lock(&p->deadslock);
+	// pthread_mutex_unlock(&p->deadslock);
 	setter(&p->end, 1, &p->readylock);
+}
+
+int	checkeach(t_data *d, int i, long long int t, long long int *fed)
+{
+	long long int	lm;
+	int				meals;
+
+	lm = 0;
+	meals = 0;
+	pthread_mutex_lock(&d->philo[i]->lmeallock);
+	lm = d->philo[i]->last_meal_t;
+	if (lm != 0 && t - lm >= d->philo[i]->die_t)
+	{
+		pthread_mutex_unlock(&d->philo[i]->lmeallock);
+		return (ERROR);
+	}
+	pthread_mutex_unlock(&d->philo[i]->lmeallock);
+	meals = getter(&d->philo[i]->meals_had, &d->philo[i]->lmeallock);
+	if (d->philo[i]->meals != -1 && meals == d->philo[i]->meals)
+		*fed += 1;
+	return (SUCCESS);
 }
 
 void	butler(t_data *d)
 {
 	int				i;
 	long long int	t;
+	long long int	fed;
 
 	i = -1;
 	t = 0;
+	fed = 0;
 	syncing(d);
-	while (!getter(&d->death, &d->dielock))
+	while (1)
 	{
 		i = -1;
 		t = get_time_ms();
 		while (++i < d->n_philos)
 		{
-			if ((lastmealget(d->philo[i]) != 0
-					&& t - lastmealget(d->philo[i]) >= d->philo[i]->die_t)
-				|| checker(d, MEAL) == SUCCESS)
-			{
-				setter(&d->death, DEATH, &d->dielock);
+			if (checkeach(d, i, t, &fed) != SUCCESS)
 				break ;
-			}
+			if (fed == d->n_philos)
+				break ;
 		}
-		if (i != d->n_philos)
+		if (i != d->n_philos || fed == d->n_philos)
 			break ;
 	}
-	if (checker(d, MEAL) != SUCCESS)
-		printf("%lld %d died\n", t - d->starttime, d->philo[i]->id);
+	spread(d, DEATH);
+	if (fed != -1 && fed != d->n_philos)
+		printf("%lld %d died\n", get_time_ms() - d->starttime, d->philo[i]->id);
 }
 
 int	main(int argc, char **argv)
@@ -131,6 +119,6 @@ int	main(int argc, char **argv)
 		return (ermsg(EINIT));
 	d->initdone = 1;
 	while (endchecker(d) != SUCCESS)
-		usleep(200);
+		usleep(400);//maybe have a mutex locked and unlocked before and after this while for sync of thread deaths
 	return (cleanerr(d, SUCCESS, d->n_philos));
 }

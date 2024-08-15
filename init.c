@@ -6,30 +6,56 @@
 /*   By: bposa <bposa@student.hive.fi>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/07/22 14:33:44 by bposa             #+#    #+#             */
-/*   Updated: 2024/08/15 14:05:05 by bposa            ###   ########.fr       */
+/*   Updated: 2024/08/15 23:45:22 by bposa            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include "philo.h"
 
+int	action(t_action act, int arg, char *str, t_philo *p)
+{
+	pthread_mutex_lock(&p->deadslock);
+	if (p->dead)
+	{
+		if (act == FORK)
+			pthread_mutex_unlock(p->forkone);
+		else if (act == FORKEAT)
+			dropforks(p);
+		pthread_mutex_unlock(&p->deadslock);
+		return (DEATH);
+	}
+	printer(arg, str, p);
+	if (act == FORKEAT)
+	{
+		pthread_mutex_lock(&p->lmeallock);
+		printer(arg, "is eating", p);
+		p->last_meal_t = get_time_ms();
+		if (p->meals != -1)
+			p->meals_had++;
+		pthread_mutex_unlock(&p->lmeallock);
+	}
+	pthread_mutex_unlock(&p->deadslock);
+	return (SUCCESS);
+}
+
 int	init_mutex(t_data *d, int i)
 {
-	if (pthread_mutex_init(d->philo[i]->dlock, NULL) != SUCCESS)
+	if (pthread_mutex_init(&d->philo[i]->deadslock, NULL) != SUCCESS)
 		return (ERROR);
 	if (pthread_mutex_init(&d->philo[i]->golock, NULL) != SUCCESS)
 	{
-		pthread_mutex_destroy(d->philo[i]->dlock);
+		pthread_mutex_destroy(&d->philo[i]->deadslock);
 		return (ERROR);
 	}
 	if (pthread_mutex_init(&d->philo[i]->readylock, NULL) != SUCCESS)
 	{
-		pthread_mutex_destroy(d->philo[i]->dlock);
+		pthread_mutex_destroy(&d->philo[i]->deadslock);
 		pthread_mutex_destroy(&d->philo[i]->golock);
 		return (ERROR);
 	}
 	if (pthread_mutex_init(&d->philo[i]->lmeallock, NULL) != SUCCESS)
 	{
-		pthread_mutex_destroy(d->philo[i]->dlock);
+		pthread_mutex_destroy(&d->philo[i]->deadslock);
 		pthread_mutex_destroy(&d->philo[i]->golock);
 		pthread_mutex_destroy(&d->philo[i]->readylock);
 		return (ERROR);
@@ -55,8 +81,6 @@ int	init_philo(t_data *d, int i)
 	d->philo[i]->eat_t = d->eat_t;
 	d->philo[i]->sleep_t = d->sleep_t;
 	d->philo[i]->prlock = &d->printlock;
-	d->philo[i]->dlock = &d->dielock;
-	d->philo[i]->death = &d->death;
 	d->philo[i]->start_t = &d->starttime;
 	d->philo[i]->ready = -1;
 	d->philo[i]->meals = d->n_meals;

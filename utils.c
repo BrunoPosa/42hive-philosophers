@@ -6,7 +6,7 @@
 /*   By: bposa <bposa@student.hive.fi>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/07/22 12:29:27 by bposa             #+#    #+#             */
-/*   Updated: 2024/08/15 15:30:35 by bposa            ###   ########.fr       */
+/*   Updated: 2024/08/15 23:06:18 by bposa            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -18,7 +18,6 @@ int	ifonlyonefork(t_philo *p)
 	{
 		pthread_mutex_unlock(p->forkone);
 		ft_usleep(p->die_t, p);
-		setter(p->death, DEATH, p->dlock);
 		return (DEATH);
 	}
 	return (ERROR);
@@ -40,7 +39,7 @@ int	ft_usleep(long long int mseconds, t_philo *p)
 		mseconds = 5;
 	while (1)
 	{
-		if (getter(p->death, p->dlock))
+		if (getter(&p->dead, &p->deadslock))
 			return (ERROR);
 		elapsed = get_time_ms() - start;
 		if (elapsed >= mseconds)
@@ -48,7 +47,7 @@ int	ft_usleep(long long int mseconds, t_philo *p)
 		if (mseconds - elapsed > 1000)
 			usleep(1000);
 		else
-			usleep((mseconds - elapsed) * 1000);
+			usleep((mseconds - elapsed) * 1000); // understand this
 	}
 	return (SUCCESS);
 }
@@ -64,4 +63,22 @@ int	getter(int *var, pthread_mutex_t *lock)
 	value = *var;
 	pthread_mutex_unlock(lock);
 	return (value);
+}
+
+int	spread(t_data *d, int signal)
+{
+	int	i;
+
+	i = -1;
+	if (signal == DEATH)
+	{
+		while (++i < d->n_philos)
+			setter(&d->philo[i]->dead, DEATH, &d->philo[i]->deadslock);
+	}
+	else if (signal == GO)
+	{
+		while (++i < d->n_philos)
+			setter(&d->philo[i]->go, GO, &d->philo[i]->golock);
+	}
+	return (SUCCESS);
 }

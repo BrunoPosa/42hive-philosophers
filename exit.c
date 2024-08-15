@@ -6,7 +6,7 @@
 /*   By: bposa <bposa@student.hive.fi>              +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/07/22 14:39:06 by bposa             #+#    #+#             */
-/*   Updated: 2024/08/15 14:36:28 by bposa            ###   ########.fr       */
+/*   Updated: 2024/08/15 20:01:20 by bposa            ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -58,7 +58,12 @@ int	normal_cleanup(t_data *d)
 	{
 		if (pthread_join(d->philo[i]->thread, NULL) != SUCCESS)
 			return (ERROR);
+		pthread_mutex_lock(&d->forks[i]);
+		pthread_mutex_unlock(&d->forks[i]);
+		pthread_mutex_lock(&d->philo[i]->deadslock);
+		pthread_mutex_unlock(&d->philo[i]->deadslock);
 		pthread_mutex_destroy(&d->forks[i]);
+		pthread_mutex_destroy(&d->philo[i]->deadslock);
 	}
 	pthread_mutex_destroy(&d->printlock);
 	return (SUCCESS);
@@ -80,9 +85,12 @@ int	mumalth_cleanup(t_data *d, int status, int initialized)
 	}
 	else if (status == ETHREAD)
 	{
-		setter(&d->death, DEATH, &d->dielock);
+		spread(d, DEATH);
 		while (--i >= 0)
+		{
 			pthread_mutex_destroy(&d->forks[i]);
+			pthread_mutex_destroy(&d->philo[i]->deadslock);
+		}
 		while (--initialized >= 0)
 		{
 			if (pthread_join(d->philo[initialized]->thread, NULL) != SUCCESS)
